@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>우리 아이 육아 난이도 테스트</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            touch-action: manipulation;
+            background-color: #FFFBEB; /* Warm yellow background */
+        }
+        .font-jua {
+            font-family: 'Jua', sans-serif;
+        }
+        /* Custom Scrollbar Hide */
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        
+        /* Number Scroller Styles */
+        .scroller-container {
+            scroll-snap-type: x mandatory;
+            overscroll-behavior-x: contain;
+        }
+        .scroll-item {
+            scroll-snap-align: center;
+            transition: all 0.3s ease;
+        }
+        .scroll-item.active {
+            transform: scale(1.8);
+            font-weight: bold;
+            color: #D97706; /* Amber-600 */
+        }
+        
+        /* Animation */
+        .fade-in {
+            animation: fadeIn 0.4s ease-out forwards;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Gradient Bar for Result */
+        .difficulty-gradient {
+            background: linear-gradient(90deg, #60A5FA 0%, #34D399 33%, #FBBF24 66%, #EF4444 100%);
+        }
+
+        /* Canvas hidden */
+        #shareCanvas {
+            display: none;
+        }
+    </style>
+</head>
+<body class="text-gray-800 h-screen flex flex-col overflow-hidden select-none">
+
+    <!-- Header -->
+    <header class="p-4 text-center bg-white shadow-sm z-10 flex justify-between items-center">
+        <div class="w-6"></div> <!-- spacer -->
+        <h1 class="text-xl text-amber-600 font-jua tracking-wider">🍼 육아 난이도 판독기</h1>
+        <div class="w-6 text-xs text-gray-400">Beta</div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main id="app" class="flex-1 relative overflow-hidden w-full max-w-md mx-auto bg-white shadow-lg">
+        
+        <!-- Screen 1: Intro -->
+        <div id="intro-screen" class="absolute inset-0 flex flex-col items-center justify-center p-6 text-center bg-amber-50">
+            <div class="text-7xl mb-6 animate-bounce">👶⚡️</div>
+            <h2 class="text-3xl font-jua text-gray-800 leading-tight mb-2">우리 아이,<br>얼마나 키우기 힘들까?</h2>
+            <div class="w-16 h-1 bg-amber-400 mx-auto mb-4 rounded-full"></div>
+            <p class="text-gray-600 mb-8 font-medium">기질 테스트로 알아보는<br>내 육아 난이도 & 맞춤 처방전</p>
+            
+            <div class="bg-white p-5 rounded-2xl shadow-sm w-full mb-8 border border-amber-100">
+                <div class="flex justify-between items-center border-b border-gray-100 pb-2 mb-2">
+                    <span class="text-gray-500 text-sm">⏳ 소요 시간</span>
+                    <span class="font-bold text-amber-600">1분 컷</span>
+                </div>
+                <div class="flex justify-between items-center">
+                    <span class="text-gray-500 text-sm">📝 문항 수</span>
+                    <span class="font-bold text-amber-600">8개 (기질 분석)</span>
+                </div>
+            </div>
+            
+            <button onclick="startTest()" class="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-4 rounded-xl text-xl shadow-[0_4px_0_rgb(180,83,9)] active:shadow-none active:translate-y-[4px] transition-all font-jua">
+                테스트 시작하기
+            </button>
+            <p class="mt-4 text-xs text-gray-400">※ 결과는 재미로만 봐주세요!</p>
+        </div>
+
+        <!-- Screen 2: Question -->
+        <div id="question-screen" class="hidden absolute inset-0 flex flex-col bg-white">
+            <!-- Progress Bar -->
+            <div class="w-full bg-gray-100 h-2">
+                <div id="progress-bar" class="bg-amber-500 h-2 rounded-r-full transition-all duration-300" style="width: 10%"></div>
+            </div>
+
+            <!-- Question Content -->
+            <div class="flex-1 flex flex-col p-6 overflow-y-auto">
+                <div class="flex-1 flex flex-col justify-center fade-in">
+                    <div class="inline-block bg-amber-100 text-amber-700 text-xs font-bold px-2 py-1 rounded-md mb-3 self-start">Q<span id="q-number">1</span></div>
+                    
+                    <h3 id="q-text" class="text-2xl font-bold mb-10 font-jua break-keep leading-snug text-gray-800 min-h-[4rem]">질문 내용이 들어갑니다.</h3>
+
+                    <!-- Visual Range Indicator -->
+                    <div class="flex justify-between items-end mb-2 px-1">
+                        <div class="w-1/3 text-left">
+                            <span id="label-left" class="text-xs font-bold text-gray-500 break-keep block bg-gray-100 p-2 rounded-lg">왼쪽 설명</span>
+                        </div>
+                        <div class="flex-1 mx-2 mb-4 border-b-2 border-dashed border-gray-300 relative h-1">
+                             <div class="absolute -top-3 left-1/2 transform -translate-x-1/2 text-[10px] text-gray-400">선택하세요</div>
+                        </div>
+                        <div class="w-1/3 text-right">
+                            <span id="label-right" class="text-xs font-bold text-gray-500 break-keep block bg-gray-100 p-2 rounded-lg">오른쪽 설명</span>
+                        </div>
+                    </div>
+
+                    <!-- Number Scroller UI -->
+                    <div class="relative w-full h-32 bg-amber-50 rounded-2xl border-2 border-amber-100 overflow-hidden flex items-center justify-center mb-6 shadow-inner">
+                        <!-- Center Indicator -->
+                        <div class="absolute w-16 h-16 border-4 border-amber-500 rounded-full pointer-events-none z-10 shadow-lg"></div>
+                        <div class="absolute top-2 text-[10px] text-amber-800 font-bold opacity-50">▼</div>
+                        
+                        <!-- Scroll Area -->
+                        <div id="scroller" class="scroller-container flex items-center w-full h-full overflow-x-auto hide-scrollbar px-[calc(50%-2rem)] cursor-grab active:cursor-grabbing">
+                            <!-- Numbers generated by JS -->
+                        </div>
+                    </div>
+
+                    <div class="text-center mb-8">
+                        <p class="text-sm text-gray-400 mb-1">현재 선택 점수</p>
+                        <div class="text-4xl font-jua text-amber-600 transition-all transform" id="score-anim"><span id="current-score">5</span><span class="text-xl">점</span></div>
+                    </div>
+                </div>
+
+                <button onclick="nextQuestion()" class="w-full bg-gray-800 hover:bg-gray-900 text-white font-bold py-4 rounded-xl text-lg shadow-lg transition transform active:scale-95 flex justify-center items-center">
+                    다음 질문 <span class="ml-2 text-xl">👉</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- Screen 3: Result -->
+        <div id="result-screen" class="hidden absolute inset-0 flex flex-col p-6 overflow-y-auto bg-amber-50">
+            <div class="text-center fade-in pb-10">
+                <p class="text-gray-500 mb-2 font-medium">당신의 육아 난이도는...</p>
+                
+                <!-- Result Card -->
+                <div class="bg-white p-6 rounded-3xl shadow-xl border-4 border-white mb-6 relative overflow-hidden">
+                    <div class="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-amber-300 to-amber-500"></div>
+                    
+                    <h2 id="result-title" class="text-3xl font-jua text-amber-600 mb-2 mt-2">결과 제목</h2>
+                    
+                    <!-- Score Display -->
+                    <div class="my-6">
+                        <span class="text-6xl font-bold text-gray-800 font-jua tracking-tighter" id="result-score">0.0</span>
+                        <span class="text-xl text-gray-400 font-jua">/10점</span>
+                    </div>
+
+                    <!-- Visual Level Graph -->
+                    <div class="relative w-full mb-8 pt-6">
+                         <!-- Markers Text -->
+                        <div class="flex justify-between text-[10px] text-gray-400 mb-1 px-1 font-bold">
+                            <span>순함</span>
+                            <span>보통</span>
+                            <span>어려움</span>
+                            <span>헬🔥</span>
+                        </div>
+                        <!-- Bar -->
+                        <div class="w-full h-4 rounded-full difficulty-gradient shadow-inner"></div>
+                        <!-- Indicator -->
+                        <div id="score-indicator" class="absolute top-5 transform -translate-x-1/2 transition-all duration-1000" style="left: 50%">
+                            <div class="text-2xl animate-bounce">▼</div>
+                            <div class="text-[10px] bg-gray-800 text-white px-2 py-0.5 rounded -mt-1 font-bold whitespace-nowrap">나의 위치</div>
+                        </div>
+                    </div>
+
+                    <p id="result-desc" class="text-gray-700 leading-relaxed text-sm word-break font-medium bg-gray-50 p-4 rounded-xl">
+                        결과 설명이 들어갑니다.
+                    </p>
+                    
+                    <!-- Tip Box -->
+                    <div class="mt-4 bg-yellow-50 p-4 rounded-xl text-left border border-yellow-100">
+                        <div class="flex items-center mb-2">
+                            <span class="bg-yellow-400 text-white text-[10px] font-bold px-2 py-1 rounded-full mr-2">TIP</span>
+                            <span class="text-xs font-bold text-yellow-800">전문가의 한마디</span>
+                        </div>
+                        <p id="result-tip" class="text-sm text-gray-700 leading-snug">여기에 팁이 들어갑니다.</p>
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="space-y-3 mb-8">
+                    <button onclick="generateImage()" class="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-4 rounded-xl text-lg shadow-md flex items-center justify-center font-jua transition transform active:scale-95">
+                        📸 이미지로 결과 저장하기
+                    </button>
+                    <button onclick="copyLink()" class="w-full bg-white border-2 border-gray-200 text-gray-700 font-bold py-3 rounded-xl text-sm shadow-sm flex items-center justify-center transition transform active:scale-95">
+                        🔗 친구에게 테스트 공유하기
+                    </button>
+                </div>
+                
+                <button onclick="location.reload()" class="text-gray-400 underline text-xs pb-4">처음으로 돌아가기</button>
+            </div>
+        </div>
+        
+        <!-- Modal for Image Download -->
+        <div id="image-modal" class="hidden fixed inset-0 z-50 bg-black bg-opacity-80 flex flex-col items-center justify-center p-6 backdrop-blur-sm">
+            <div class="bg-white rounded-2xl p-2 w-full max-w-sm text-center shadow-2xl transform transition-all scale-100">
+                <div class="p-4">
+                    <p class="text-gray-800 font-bold text-lg mb-1">이미지 생성 완료! 🎉</p>
+                    <p class="text-gray-500 text-xs mb-4">이미지를 꾹 눌러서 저장하거나 캡처하세요.</p>
+                    <img id="generated-image" class="w-full rounded-xl shadow-lg border border-gray-200" src="" alt="Result">
+                </div>
+                <div class="border-t p-3">
+                    <button onclick="closeModal()" class="w-full py-3 bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-xl font-bold transition">닫기</button>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Hidden Canvas for Image Generation -->
+    <canvas id="shareCanvas" width="1080" height="1350"></canvas>
+
+    <script>
+        // --- Data: 8 Questions based on User Images ---
+        /*
+          Update: Input range 1-10.
+          Total Score Logic: Sum of 8 questions (Max 80) -> Display as Average (Max 10.0)
+          
+          Q1. Activity: High(10) -> Harder (Direct)
+          Q2. Rhythm: Regular(10) -> Easier (Reverse)
+          Q3. New Stimuli: Accept(10) -> Easier (Reverse)
+          Q4. Adaptability: Easy(10) -> Easier (Reverse)
+          Q5. Emotional Intensity: High(10) -> Harder (Direct)
+          Q6. Sensitivity: Dull(10) -> Easier (Reverse)
+          Q7. Mood: Good(10) -> Easier (Reverse)
+          Q8. Persistence: Long(10) -> Easier (Reverse)
+        */
+
+        const questions = [
+            {
+                id: 1,
+                text: "신체 활동량과 활동 수준은\n어느 정도입니까?",
+                left: "주로 앉아서 놈\n(얌전)",
+                right: "끊임없이 움직임\n(활발)",
+                scoring: 'direct'
+            },
+            {
+                id: 2,
+                text: "하루 일과(먹놀잠)에\n일정한 규칙이 있습니까?",
+                left: "매일 달라서\n예측 불가",
+                right: "칼 같은 리듬이\n있음",
+                scoring: 'reverse'
+            },
+            {
+                id: 3,
+                text: "새로운 음식이나 장소에 대한\n반응은 어떻습니까?",
+                left: "불편해하고\n거부함",
+                right: "호기심을 갖고\n접근함",
+                scoring: 'reverse'
+            },
+            {
+                id: 4,
+                text: "주변 환경이 바뀌었을 때\n얼마나 쉽게 적응합니까?",
+                left: "예민하게 반응하고\n거부",
+                right: "거리낌 없이\n받아들임",
+                scoring: 'reverse'
+            },
+            {
+                id: 5,
+                text: "감정 표현(울음, 웃음)은\n어느 정도로 합니까?",
+                left: "무던하고\n조용한 편",
+                right: "아주 격하게\n표현함",
+                scoring: 'direct'
+            },
+            {
+                id: 6,
+                text: "작은 자극(소리, 온도 등)이나\n변화를 잘 알아차립니까?",
+                left: "조금만 바껴도\n예민함",
+                right: "둔한 편으로\n무던함",
+                scoring: 'reverse'
+            },
+            {
+                id: 7,
+                text: "평소 기분은 대체로\n어때 보입니까?",
+                left: "잘 울고\n짜증이 많음",
+                right: "잘 웃고\n기분이 좋음",
+                scoring: 'reverse'
+            },
+            {
+                id: 8,
+                text: "한 가지 활동을\n꽤 오래 하는 편인가요?",
+                left: "금방 지루해 함\n(산만)",
+                right: "끈기 있게 지속함\n(집중)",
+                scoring: 'reverse'
+            }
+        ];
+
+        // Ranges based on Average Score (1.0 ~ 10.0)
+        // 1-2.5, 2.6-5.0, 5.1-7.5, 7.6-10.0
+        const results = [
+            { 
+                range: [0, 2.5], 
+                title: "🦄 환상의 유니콘", 
+                desc: "축하합니다! 전생에 나라를 구하셨군요. 아이는 순한 기질을 타고났습니다. 육아가 '할 만하다'고 느끼시죠? 이 정도면 거저 키우는 수준입니다. 단, 밖에서 육아 힘들다고 하면 욕먹을 수 있음 주의.", 
+                tip: "아이가 표현이 적을 수 있어요. 먼저 말을 걸고 감정을 물어봐주세요." 
+            },
+            { 
+                range: [2.51, 5.0], 
+                title: "🐣 평범한 지구인", 
+                desc: "지극히 정상적인 육아 난이도입니다. 좋을 땐 천사 같다가도, 잠투정 부릴 땐 멘탈이 살짝 흔들리죠? 이 정도면 아주 훌륭한 방어력입니다. 남들 겪는 만큼 겪고 계시네요!", 
+                tip: "아이의 패턴을 파악하면 훨씬 수월해져요. 규칙적인 루틴을 만들어보세요." 
+            },
+            { 
+                range: [5.01, 7.5], 
+                title: "🔥 매운맛 스파르타", 
+                desc: "육아 난이도 '상' 당첨! 예민하고 에너지가 넘치는 아이입니다. 엄마 아빠의 체력과 인내심이 매일 시험대에 오릅니다. '오늘만 버티자'가 매일의 목표가 되는 수준.", 
+                tip: "에너지를 발산할 신체 활동이 필수입니다. 무조건 밖으로 나가서 굴리세요!" 
+            },
+            { 
+                range: [7.51, 10.0], 
+                title: "😈 육아계의 최종보스", 
+                desc: "존경합니다. 난이도 최상급 '헬 모드'를 플레이 중이시군요. 작은 소리에도 깨고, 호불호가 확실하며, 떼쓰기 시작하면 답이 없습니다. 당신이 지금 살아 숨 쉬는 것만으로도 대단한 일입니다.", 
+                tip: "아이의 예민함은 '섬세함'이라는 큰 재능입니다. 공감을 먼저 해주고 기다려주는 여유(보살 마인드)가 필요해요." 
+            }
+        ];
+
+        let currentQIndex = 0;
+        let totalScore = 0;
+        let currentSelection = 5;
+        let finalAverage = 0;
+
+        // --- DOM Elements ---
+        const introScreen = document.getElementById('intro-screen');
+        const questionScreen = document.getElementById('question-screen');
+        const resultScreen = document.getElementById('result-screen');
+        
+        const qNumber = document.getElementById('q-number');
+        const qText = document.getElementById('q-text');
+        const labelLeft = document.getElementById('label-left');
+        const labelRight = document.getElementById('label-right');
+        const scroller = document.getElementById('scroller');
+        const currentScoreDisplay = document.getElementById('current-score');
+        const progressBar = document.getElementById('progress-bar');
+        
+        // --- Scroller Logic ---
+        function initScroller() {
+            scroller.innerHTML = '';
+            const spacerStart = document.createElement('div');
+            spacerStart.className = 'flex-shrink-0 w-[calc(50%-2rem)]'; 
+            scroller.appendChild(spacerStart);
+
+            // CHANGED: Loop from 1 to 10 for cleaner scale
+            for (let i = 1; i <= 10; i++) {
+                const item = document.createElement('div');
+                item.className = 'scroll-item flex-shrink-0 w-16 h-full flex items-center justify-center text-2xl text-gray-300 cursor-pointer font-jua select-none';
+                item.textContent = i;
+                item.onclick = () => scrollToNumber(i);
+                scroller.appendChild(item);
+            }
+
+            const spacerEnd = document.createElement('div');
+            spacerEnd.className = 'flex-shrink-0 w-[calc(50%-2rem)]'; 
+            scroller.appendChild(spacerEnd);
+
+            scroller.addEventListener('scroll', () => {
+                const center = scroller.scrollLeft + scroller.offsetWidth / 2;
+                const items = document.querySelectorAll('.scroll-item');
+                let closestDist = Infinity;
+                let closestIndex = 0;
+
+                items.forEach((item, index) => {
+                    const itemCenter = item.offsetLeft + item.offsetWidth / 2;
+                    const dist = Math.abs(center - itemCenter);
+                    if (dist < closestDist) {
+                        closestDist = dist;
+                        closestIndex = index;
+                    }
+                    item.classList.remove('active');
+                });
+
+                if (items[closestIndex]) {
+                    items[closestIndex].classList.add('active');
+                    const newValue = parseInt(items[closestIndex].textContent);
+                    
+                    if(currentSelection !== newValue) {
+                        currentSelection = newValue;
+                        currentScoreDisplay.textContent = currentSelection;
+                    }
+                }
+            });
+        }
+
+        function scrollToNumber(num) {
+             const items = document.querySelectorAll('.scroll-item');
+             // Items array is 0-indexed, but our numbers are 1-10.
+             // num=1 is at index 0
+             const targetIndex = num - 1;
+             if(items[targetIndex]) {
+                 items[targetIndex].scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+             }
+        }
+
+        // --- App Flow ---
+        function startTest() {
+            introScreen.classList.add('hidden');
+            questionScreen.classList.remove('hidden');
+            initScroller();
+            loadQuestion();
+        }
+
+        function loadQuestion() {
+            const q = questions[currentQIndex];
+            qNumber.textContent = q.id;
+            qText.innerText = q.text;
+            labelLeft.innerText = q.left;
+            labelRight.innerText = q.right;
+            
+            const percent = ((currentQIndex) / questions.length) * 100;
+            progressBar.style.width = `${percent}%`;
+
+            setTimeout(() => scrollToNumber(5), 100);
+        }
+
+        function nextQuestion() {
+            const q = questions[currentQIndex];
+            let score = currentSelection;
+            
+            // Reverse scoring logic for 1-10 scale
+            // If reverse: 10 becomes 1, 1 becomes 10. Formula: 11 - x
+            if (q.scoring === 'reverse') {
+                score = 11 - currentSelection;
+            }
+            
+            totalScore += score;
+            currentQIndex++;
+
+            if (currentQIndex < questions.length) {
+                const container = document.querySelector('#question-screen > div > div.fade-in');
+                container.classList.remove('fade-in');
+                void container.offsetWidth;
+                container.classList.add('fade-in');
+                
+                loadQuestion();
+            } else {
+                showResult();
+            }
+        }
+
+        function showResult() {
+            questionScreen.classList.add('hidden');
+            resultScreen.classList.remove('hidden');
+
+            // Calculate Average Score out of 10
+            finalAverage = totalScore / 8; // Max possible total 80 / 8 = 10
+            
+            const resultData = results.find(r => finalAverage >= r.range[0] && finalAverage <= r.range[1]);
+
+            document.getElementById('result-title').textContent = resultData.title;
+            const scoreEl = document.getElementById('result-score');
+            
+            // Counting Animation
+            let startScore = 0.0;
+            const duration = 1000;
+            const timer = setInterval(function() {
+                startScore += 0.1;
+                scoreEl.textContent = startScore.toFixed(1);
+                if (startScore >= finalAverage) {
+                    clearInterval(timer);
+                    scoreEl.textContent = finalAverage.toFixed(1);
+                }
+            }, 20);
+
+            document.getElementById('result-desc').textContent = resultData.desc;
+            document.getElementById('result-tip').textContent = resultData.tip;
+            
+            // Visual Indicator Position
+            // Scale: 0 to 10 mapped to 0% to 100%
+            setTimeout(() => {
+                const percentage = (finalAverage / 10) * 100;
+                document.getElementById('score-indicator').style.left = `${percentage}%`;
+            }, 300);
+        }
+
+        // --- Sharing & Canvas ---
+        function copyLink() {
+            // This copies the current page's URL, which is the live app link for sharing.
+            const dummy = document.createElement("input");
+            document.body.appendChild(dummy);
+            dummy.value = window.location.href;
+            dummy.select();
+            document.execCommand("copy");
+            document.body.removeChild(dummy);
+            
+            const toast = document.createElement('div');
+            toast.className = 'fixed bottom-10 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-4 py-2 rounded-lg text-sm z-50 fade-in';
+            // UPDATED: Clearer Korean message for sharing
+            toast.innerText = '테스트 공유 링크가 복사되었습니다!'; 
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 2000);
+        }
+
+        function generateImage() {
+            const btn = document.querySelector('button[onclick="generateImage()"]');
+            const originalText = btn.innerText;
+            btn.innerText = "이미지 생성 중...";
+            
+            setTimeout(() => {
+                drawCanvas(btn, originalText);
+            }, 100);
+        }
+
+        function drawCanvas(btn, originalText) {
+            const canvas = document.getElementById('shareCanvas');
+            const ctx = canvas.getContext('2d');
+            const resultTitle = document.getElementById('result-title').textContent;
+            const resultDesc = document.getElementById('result-desc').textContent;
+
+            // 1. Background
+            ctx.fillStyle = '#FFFBEB';
+            ctx.fillRect(0, 0, 1080, 1350);
+
+            // 2. Deco
+            ctx.fillStyle = '#FEF3C7'; 
+            ctx.beginPath();
+            ctx.arc(540, 675, 450, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 3. Title
+            ctx.textAlign = 'center';
+            ctx.fillStyle = '#D97706';
+            ctx.font = 'bold 50px "Jua"';
+            ctx.fillText('우리 아이 육아 난이도 테스트', 540, 150);
+
+            // 4. Card
+            ctx.shadowColor = "rgba(0,0,0,0.1)";
+            ctx.shadowBlur = 30;
+            ctx.shadowOffsetY = 10;
+            ctx.fillStyle = '#FFFFFF';
+            roundRect(ctx, 100, 250, 880, 850, 40);
+            ctx.fill();
+            ctx.shadowBlur = 0; 
+
+            // 5. Result Title
+            ctx.fillStyle = '#B45309';
+            ctx.font = 'bold 60px "Jua"';
+            ctx.fillText(resultTitle, 540, 380);
+
+            // 6. Score (Updated for 10.0 scale)
+            ctx.fillStyle = '#1F2937';
+            ctx.font = 'bold 180px "Jua"';
+            ctx.fillText(finalAverage.toFixed(1), 540, 560);
+            
+            ctx.fillStyle = '#9CA3AF';
+            ctx.font = '40px "Jua"';
+            ctx.fillText('/ 10.0점', 540, 620);
+
+            // 7. Visual Bar on Canvas
+            // Draw Gradient Bar
+            const grad = ctx.createLinearGradient(200, 680, 880, 680);
+            grad.addColorStop(0, '#60A5FA');
+            grad.addColorStop(0.33, '#34D399');
+            grad.addColorStop(0.66, '#FBBF24');
+            grad.addColorStop(1, '#EF4444');
+            
+            ctx.fillStyle = grad;
+            // Round rect for bar
+            roundRect(ctx, 240, 680, 600, 30, 15);
+            ctx.fill();
+
+            // Draw Indicator
+            const indicatorX = 240 + ((finalAverage / 10) * 600);
+            ctx.fillStyle = '#1F2937';
+            ctx.beginPath();
+            ctx.moveTo(indicatorX, 670);
+            ctx.lineTo(indicatorX - 15, 640);
+            ctx.lineTo(indicatorX + 15, 640);
+            ctx.fill();
+            ctx.font = 'bold 24px "Jua"';
+            ctx.fillText("나의 위치", indicatorX, 630);
+
+            // 8. Description
+            ctx.fillStyle = '#4B5563';
+            ctx.font = '40px "Noto Sans KR"';
+            wrapText(ctx, resultDesc, 540, 800, 780, 60);
+
+            // 9. Footer
+            ctx.fillStyle = '#9CA3AF';
+            ctx.font = '30px "Jua"';
+            ctx.fillText('@육아난이도판독기', 540, 1020);
+            
+            // 10. CTA
+            ctx.fillStyle = '#F59E0B';
+            ctx.fillRect(0, 1200, 1080, 150);
+            ctx.fillStyle = '#FFFFFF';
+            ctx.font = 'bold 50px "Jua"';
+            ctx.fillText('나도 테스트 하러 가기 🔍', 540, 1290);
+
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+            document.getElementById('generated-image').src = dataUrl;
+            document.getElementById('image-modal').classList.remove('hidden');
+            
+            btn.innerText = originalText;
+        }
+
+        function closeModal() {
+            document.getElementById('image-modal').classList.add('hidden');
+        }
+
+        function roundRect(ctx, x, y, w, h, r) {
+            if (w < 2 * r) r = w / 2;
+            if (h < 2 * r) r = h / 2;
+            ctx.beginPath();
+            ctx.moveTo(x + r, y);
+            ctx.arcTo(x + w, y, x + w, y + h, r);
+            ctx.arcTo(x + w, y + h, x, y + h, r);
+            ctx.arcTo(x, y + h, x, y, r);
+            ctx.arcTo(x, y, x + w, y, r);
+            ctx.closePath();
+        }
+
+        function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
+            const splitWords = text.split(' '); 
+            let currentLine = '';
+            for(let n = 0; n < splitWords.length; n++) {
+                const testLine = currentLine + splitWords[n] + ' ';
+                const metrics = ctx.measureText(testLine);
+                const testWidth = metrics.width;
+                if (testWidth > maxWidth && n > 0) {
+                    ctx.fillText(currentLine, x, y);
+                    currentLine = splitWords[n] + ' ';
+                    y += lineHeight;
+                } else {
+                    currentLine = testLine;
+                }
+            }
+            ctx.fillText(currentLine, x, y);
+        }
+    </script>
+</body>
+</html>
